@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP Explorer - Laboratorio cURL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .curl-box { background-color: #1e1e1e; color: #d4d4d4; font-family: 'Fira Code', monospace; }
+        .tab-active { border-bottom: 4px solid #3b82f6; color: #3b82f6; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-blue-600 p-6 text-white text-center">
+            <h1 class="text-3xl font-bold italic">HTTP & cURL Explorer</h1>
+            <p class="mt-2 opacity-90">Esercitazione interattiva per la classe 5ª - Prerequisito Web API</p>
+        </div>
+
+        <div class="flex border-b">
+            <button onclick="setVerb('GET')" id="tab-GET" class="flex-1 p-4 font-bold hover:bg-gray-50 tab-active">GET</button>
+            <button onclick="setVerb('POST')" id="tab-POST" class="flex-1 p-4 font-bold hover:bg-gray-50 text-gray-500">POST</button>
+            <button onclick="setVerb('PUT')" id="tab-PUT" class="flex-1 p-4 font-bold hover:bg-gray-50 text-gray-500">PUT</button>
+            <button onclick="setVerb('DELETE')" id="tab-DELETE" class="flex-1 p-4 font-bold hover:bg-gray-50 text-gray-500">DELETE</button>
+        </div>
+
+        <div class="p-8">
+            <div id="description" class="mb-6">
+                <h2 id="verb-title" class="text-2xl font-bold text-gray-800 mb-2">Metodo GET</h2>
+                <p id="verb-text" class="text-gray-600">Utilizzato per <strong>leggere</strong> dati. È un metodo sicuro e idempotente: chiamarlo 1 o 100 volte non cambia lo stato del server.</p>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4 mb-6 border-l-4 border-blue-500">
+                <p class="text-sm font-semibold text-gray-500 uppercase">Scenario Didattico:</p>
+                <p id="scenario-text" class="text-gray-700 italic">"Stai chiedendo al server di mostrarti l'elenco dei post nel database."</p>
+            </div>
+
+            <div class="relative">
+                <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Copia e incolla nel terminale:</label>
+                <div class="curl-box p-4 rounded-lg text-sm overflow-x-auto relative group">
+                    <code id="curl-command">curl https://jsonplaceholder.typicode.com/posts/1</code>
+                    <button onclick="copyCommand()" class="absolute right-2 top-2 bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600">Copia</button>
+                </div>
+            </div>
+
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="border rounded-lg p-4 bg-green-50">
+                    <h3 class="font-bold text-green-700 mb-2">Cosa osservare:</h3>
+                    <ul id="observe-list" class="text-sm text-green-800 list-disc ml-4 space-y-1">
+                        <li>Il server risponde con un oggetto JSON.</li>
+                        <li>Lo Status Code dovrebbe essere 200 OK.</li>
+                    </ul>
+                </div>
+                <div class="border rounded-lg p-4 bg-orange-50">
+                    <h3 class="font-bold text-orange-700 mb-2">Mapping .NET:</h3>
+                    <p id="dotnet-mapping" class="text-sm text-orange-800 font-mono">[HttpGet]</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 bg-gray-100 text-center text-xs text-gray-400 border-t italic">
+            Creato per scopi didattici - Utilizza l'API pubblica JSONPlaceholder.
+        </div>
+    </div>
+
+    <script>
+        const data = {
+            'GET': {
+                title: 'Metodo GET',
+                text: 'Utilizzato per <strong>leggere</strong> dati dal server. È il metodo più comune e non modifica lo stato delle risorse.',
+                scenario: 'Chiedi al server i dettagli dell\'articolo con ID 1.',
+                command: 'curl -i https://jsonplaceholder.typicode.com/posts/1',
+                observe: ['Status 200 OK', 'Presenza del Body con i campi id, title, body', 'Header Content-Type: application/json'],
+                mapping: '[HttpGet("{id}")]'
+            },
+            'POST': {
+                title: 'Metodo POST',
+                text: 'Utilizzato per <strong>creare</strong> nuove risorse. Invia dati nel body della richiesta.',
+                scenario: 'Aggiungi un nuovo articolo al database inviando i dati in formato JSON.',
+                command: 'curl -X POST https://jsonplaceholder.typicode.com/posts -H "Content-Type: application/json" -d "{\\"title\\": \\"Nuovo Post\\", \\"body\\": \\"Creato via cURL\\", \\"userId\\": 1}"',
+                observe: ['Status 201 Created', 'Il server restituisce l\'oggetto creato con un nuovo ID', 'L\'header Content-Type deve essere impostato correttamente'],
+                mapping: '[HttpPost]'
+            },
+            'PUT': {
+                title: 'Metodo PUT',
+                text: 'Utilizzato per <strong>aggiornare</strong> (sovrascrivere) una risorsa esistente.',
+                scenario: 'Modifica completamente l\'articolo numero 1.',
+                command: 'curl -X PUT https://jsonplaceholder.typicode.com/posts/1 -H "Content-Type: application/json" -d "{\\"id\\": 1, \\"title\\": \\"Titolo Modificato\\", \\"body\\": \\"Update via cURL\\", \\"userId\\": 1}"',
+                observe: ['Status 200 OK', 'I dati restituiti sono quelli appena inviati', 'Idempotenza: se riesegui, il risultato non cambia'],
+                mapping: '[HttpPut("{id}")]'
+            },
+            'DELETE': {
+                title: 'Metodo DELETE',
+                text: 'Utilizzato per <strong>rimuovere</strong> una risorsa dal server.',
+                scenario: 'Cancella l\'articolo numero 1 dal database.',
+                command: 'curl -X DELETE -i https://jsonplaceholder.typicode.com/posts/1',
+                observe: ['Status 200 OK o 204 No Content', 'Il body della risposta è solitamente vuoto', 'L\'oggetto non sarà più reperibile con una GET'],
+                mapping: '[HttpDelete("{id}")]'
+            }
+        };
+
+        function setVerb(verb) {
+            // Update tabs
+            document.querySelectorAll('button[id^="tab-"]').forEach(btn => {
+                btn.classList.remove('tab-active', 'text-blue-600');
+                btn.classList.add('text-gray-500');
+            });
+            document.getElementById('tab-' + verb).classList.add('tab-active');
+            document.getElementById('tab-' + verb).classList.remove('text-gray-500');
+
+            // Update content
+            document.getElementById('verb-title').innerHTML = data[verb].title;
+            document.getElementById('verb-text').innerHTML = data[verb].text;
+            document.getElementById('scenario-text').innerText = data[verb].scenario;
+            document.getElementById('curl-command').innerText = data[verb].command;
+            document.getElementById('dotnet-mapping').innerText = data[verb].mapping;
+
+            const list = document.getElementById('observe-list');
+            list.innerHTML = '';
+            data[verb].observe.forEach(item => {
+                const li = document.createElement('li');
+                li.innerText = item;
+                list.appendChild(li);
+            });
+        }
+
+        function copyCommand() {
+            const cmd = document.getElementById('curl-command').innerText;
+            navigator.clipboard.writeText(cmd);
+            alert('Comando copiato negli appunti!');
+        }
+    </script>
+</body>
+</html>
